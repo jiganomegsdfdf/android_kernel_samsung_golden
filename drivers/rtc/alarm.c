@@ -463,7 +463,7 @@ static int alarm_suspend(struct platform_device *pdev, pm_message_t state)
 			rtc_alarm.time.tm_min, rtc_alarm.time.tm_sec);
 		if (rtc_current_time + 1 >= rtc_alarm_time) {
 			pr_alarm(SUSPEND, "alarm about to go off\n");
-			memset(&rtc_alarm, 0, sizeof(rtc_alarm));
+			rtc_time_to_tm(0, &rtc_alarm.time);
 			rtc_alarm.enabled = 0;
 			rtc_set_alarm(alarm_rtc_dev, &rtc_alarm);
 

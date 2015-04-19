@@ -6358,6 +6358,13 @@ S:	Maintained
 F:	Documentation/filesystems/ufs.txt
 F:	fs/ufs/
 
+UHID USERSPACE HID IO DRIVER:
+M:	David Herrmann <dh.herrmann@googlemail.com>
+L:	linux-input@vger.kernel.org
+S:	Maintained
+F:	drivers/hid/uhid.c
+F:	include/linux/uhid.h
+
 ULTRA-WIDEBAND (UWB) SUBSYSTEM:
 L:	linux-usb@vger.kernel.org
 S:	Orphan
@@ -6914,6 +6921,12 @@ M:	Miroslav Zagorac <zaga@fly.cc.fer.hr>
 L:	linux-scsi@vger.kernel.org
 S:	Maintained
 F:	drivers/scsi/wd7000.c
+
+WIIMOTE HID DRIVER
+M:	David Herrmann <dh.herrmann@googlemail.com>
+L:	linux-input@vger.kernel.org
+S:	Maintained
+F:	drivers/hid/hid-wiimote*
 
 WINBOND CIR DRIVER
 M:	David Härdeman <david@hardeman.nu>

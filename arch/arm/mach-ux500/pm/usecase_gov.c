@@ -66,7 +66,12 @@ static bool user_config_updated;
 static enum ux500_uc current_uc = UX500_UC_MAX;
 static bool is_work_scheduled;
 static bool is_early_suspend;
+#ifndef CONFIG_DVFS_LIMIT
+/* Since usecase governor messes max cpufreq, disable it if DVFS_LIMIT is not set */
+static bool uc_master_enable = false;
+#else
 static bool uc_master_enable = true;
+#endif
 
 static unsigned int cpuidle_deepest_state;
 
@@ -626,7 +631,7 @@ static int setup_debugfs(void)
 
 	for (i = 0; i < ARRAY_SIZE(debug_entry); i++) {
 		if (IS_ERR_OR_NULL(debugfs_create_file(debug_entry[i].name,
-						       S_IWUGO | S_IRUGO,
+						       S_IWUSR | S_IWGRP | S_IRUGO,
 						       usecase_dir,
 						       NULL,
 						       debug_entry[i].fops)))
@@ -634,7 +639,7 @@ static int setup_debugfs(void)
 	}
 
 	if (IS_ERR_OR_NULL(debugfs_create_u32("exit_irq_per_s",
-					      S_IWUGO | S_IRUGO, usecase_dir,
+					      S_IWUSR | S_IWGRP | S_IRUGO, usecase_dir,
 					      &exit_irq_per_s)))
 		goto fail;
 	return 0;

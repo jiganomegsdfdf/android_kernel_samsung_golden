@@ -1073,6 +1073,7 @@ static int tc360_flash_fw(struct tc360_data *data, u8 fw_path, bool force)
 	int ret;
 	int fw_ver;
 
+	printk(KERN_INFO "load fw\n");
 	ret = tc360_load_fw(data, fw_path);
 	if (ret < 0) {
 		dev_err(&client->dev, "fail to load fw (%d)\n", ret);
@@ -1080,6 +1081,7 @@ static int tc360_flash_fw(struct tc360_data *data, u8 fw_path, bool force)
 	}
 	data->cur_fw_path = fw_path;
 
+	printk(KERN_INFO "fw compare\n");
 	/* firmware version compare */
 	fw_ver = tc360_get_fw_ver(data);
 	if (fw_ver >= data->fw_img->first_fw_ver && !force) {
@@ -1088,6 +1090,8 @@ static int tc360_flash_fw(struct tc360_data *data, u8 fw_path, bool force)
 			 fw_ver);
 		goto out;
 	}
+
+	printk(KERN_INFO "fw update\n");
 	dev_info(&client->dev, "fw update to %#x (from %#x) (%s)\n",
 		 data->fw_img->first_fw_ver, fw_ver,
 		 (force) ? "force" : "ver mismatch");
@@ -1766,7 +1770,9 @@ static int __devinit tc360_probe(struct i2c_client *client,
 
 	data->pdata->power(true);
 	msleep(TC360_POWERON_DELAY * 2);
+	printk(KERN_INFO "led start\n");
 	data->pdata->led_power(true);
+	printk(KERN_INFO "led end\n");
 
 	/*
 	 * The tc360_initialize function create singlethread_workqueue. If the
@@ -1774,7 +1780,9 @@ static int __devinit tc360_probe(struct i2c_client *client,
 	 * cause kernel panic. So, the tc360_initialize function must be on
 	 * the bottom on probe function.
 	 */
-	ret = tc360_initialize(data);
+	//HAXX: Disable this because it gets permanently stuck on 'tc360_flash_fw'
+	//ret = tc360_initialize(data);
+	ret = HAVE_LATEST_FW;
 	if (ret < 0) {
 		dev_err(&client->dev, "fail to tc360 initialize (%d).\n",
 			ret);

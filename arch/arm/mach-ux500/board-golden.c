@@ -64,6 +64,7 @@
 
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
+#include <asm/hardware/gic.h>
 
 #include <plat/i2c.h>
 #include <plat/ste_dma40.h>
@@ -3209,10 +3210,11 @@ __setup("board_id=", board_id_setup);
 
 MACHINE_START(SEC_GOLDEN, "SAMSUNG GOLDEN")
 	/* Maintainer: SAMSUNG based on ST Ericsson */
-	.boot_params	= 0x100,
+	.atag_offset	= 0x100,
 	.map_io		= u8500_map_io,
 	.init_irq	= ux500_init_irq,
 	.timer		= &ux500_timer,
+	.handle_irq     = gic_handle_irq,
 	.init_machine	= golden_init_machine,
 	.restart	= ux500_restart,
 MACHINE_END

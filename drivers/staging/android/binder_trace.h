@@ -152,7 +152,7 @@ TRACE_EVENT(binder_transaction_node_to_ref,
 	TP_STRUCT__entry(
 		__field(int, debug_id)
 		__field(int, node_debug_id)
-		__field(binder_uintptr_t, node_ptr)
+		__field(void __user *, node_ptr)
 		__field(int, ref_debug_id)
 		__field(uint32_t, ref_desc)
 	),
@@ -178,7 +178,7 @@ TRACE_EVENT(binder_transaction_ref_to_node,
 		__field(int, ref_debug_id)
 		__field(uint32_t, ref_desc)
 		__field(int, node_debug_id)
-		__field(binder_uintptr_t, node_ptr)
+		__field(void __user *, node_ptr)
 	),
 	TP_fast_assign(
 		__entry->debug_id = t->debug_id;

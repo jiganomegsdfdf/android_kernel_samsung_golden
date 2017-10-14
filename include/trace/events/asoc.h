@@ -231,9 +231,9 @@ TRACE_EVENT(snd_soc_dapm_walk_done,
 
 	TP_fast_assign(
 		__assign_str(name, card->name);
-		__entry->power_checks = card->dapm_stats.power_checks;
-		__entry->path_checks = card->dapm_stats.path_checks;
-		__entry->neighbour_checks = card->dapm_stats.neighbour_checks;
+		//__entry->power_checks = card->dapm_stats.power_checks;
+		//__entry->path_checks = card->dapm_stats.path_checks;
+		//__entry->neighbour_checks = card->dapm_stats.neighbour_checks;
 	),
 
 	TP_printk("%s: checks %d power, %d path, %d neighbour",

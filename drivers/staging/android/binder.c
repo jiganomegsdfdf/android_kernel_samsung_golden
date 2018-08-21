@@ -3150,6 +3150,7 @@ static void binder_deferred_release(struct binder_proc *proc)
 				void *page_addr = proc->buffer + i * PAGE_SIZE;
 				unsigned long page_ptr =
 						(unsigned long)proc->pages[i];
+				binder_debug(BINDER_DEBUG_BUFFER_ALLOC,
 					     "binder_release: %d: "
 					     "page %d at %p not freed\n",
 					     proc->pid, i,

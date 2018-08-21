@@ -14,6 +14,12 @@
 
 #include <linux/battery/sec_battery.h>
 
+ktime_t alarm_get_elapsed_realtime(void)
+{
+	return ktime_get_boottime();
+}
+int alarm_start(struct alarm *alarm, ktime_t start);
+
 char *sec_bat_charging_mode_str[] = {
 	"None",
 	"Normal",
@@ -797,16 +803,19 @@ static bool sec_bat_temperature_check(
 static void  sec_bat_event_program_alarm(
 	struct sec_battery_info *battery, int seconds)
 {
-	ktime_t low_interval = ktime_set(seconds - 10, 0);
+	/*ktime_t low_interval = ktime_set(seconds - 10, 0);
 	ktime_t slack = ktime_set(20, 0);
 	ktime_t next;
 
 	next = ktime_add(battery->last_event_time, low_interval);
 	alarm_start_range(&battery->event_termination_alarm,
-		next, ktime_add(next, slack));
+		next, ktime_add(next, slack));*/
+	alarm_start(&battery->event_termination_alarm,
+		ktime_add(battery->last_event_time, ktime_set(seconds - 10, 0)));
 }
 
-static void sec_bat_event_expired_timer_func(struct alarm *alarm)
+static enum alarmtimer_restart sec_bat_event_expired_timer_func(
+	struct alarm *alarm, ktime_t now)
 {
 	struct sec_battery_info *battery =
 		container_of(alarm, struct sec_battery_info,
@@ -815,6 +824,7 @@ static void sec_bat_event_expired_timer_func(struct alarm *alarm)
 	battery->event &= (~battery->event_wait);
 	dev_info(battery->dev,
 		"%s: event expired (0x%x)\n", __func__, battery->event);
+	return ALARMTIMER_NORESTART;
 }
 
 static void sec_bat_event_set(
@@ -1330,16 +1340,19 @@ static void sec_bat_polling_work(struct work_struct *work)
 static void sec_bat_program_alarm(
 				struct sec_battery_info *battery, int seconds)
 {
-	ktime_t low_interval = ktime_set(seconds, 0);
+	/*ktime_t low_interval = ktime_set(seconds, 0);
 	ktime_t slack = ktime_set(10, 0);
 	ktime_t next;
 
 	next = ktime_add(battery->last_poll_time, low_interval);
 	alarm_start_range(&battery->polling_alarm,
-		next, ktime_add(next, slack));
+		next, ktime_add(next, slack));*/
+	alarm_start(&battery->polling_alarm,
+		ktime_add(battery->last_poll_time, ktime_set(seconds, 0)));
 }
 
-static void sec_bat_alarm(struct alarm *alarm)
+static enum alarmtimer_restart sec_bat_alarm(
+	struct alarm *alarm, ktime_t now)
 {
 	struct sec_battery_info *battery = container_of(alarm,
 				struct sec_battery_info, polling_alarm);
@@ -1353,6 +1366,7 @@ static void sec_bat_alarm(struct alarm *alarm)
 		queue_work(battery->monitor_wqueue, &battery->monitor_work);
 		dev_dbg(battery->dev, "%s: Activated\n", __func__);
 	}
+	return ALARMTIMER_NORESTART;
 }
 
 
@@ -1606,8 +1620,8 @@ static void sec_bat_cable_work(struct work_struct *work)
 			goto end_of_cable_work;
 
 		/* No need for wakelock in Alarm */
-		if (battery->pdata->polling_type != SEC_BATTERY_MONITOR_ALARM)
-			wake_lock(&battery->vbus_wake_lock);
+		/*if (battery->pdata->polling_type != SEC_BATTERY_MONITOR_ALARM)
+			wake_lock(&battery->vbus_wake_lock);*/
 	}
 
 	/* polling time should be reset when cable is changed
@@ -2275,7 +2289,7 @@ static int __devinit sec_battery_probe(struct platform_device *pdev)
 	battery->charging_next_time = 0;
 
 	alarm_init(&battery->event_termination_alarm,
-			ANDROID_ALARM_ELAPSED_REALTIME_WAKEUP,
+			ALARM_BOOTTIME,
 			sec_bat_event_expired_timer_func);
 
 	battery->temp_high_threshold =
@@ -2333,7 +2347,7 @@ static int __devinit sec_battery_probe(struct platform_device *pdev)
 	case SEC_BATTERY_MONITOR_ALARM:
 		battery->last_poll_time = alarm_get_elapsed_realtime();
 		alarm_init(&battery->polling_alarm,
-			ANDROID_ALARM_ELAPSED_REALTIME_WAKEUP,
+			ALARM_BOOTTIME,
 			sec_bat_alarm);
 		break;
 	default:

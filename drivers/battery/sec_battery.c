@@ -63,7 +63,9 @@ static int sec_bat_set_charge(
 		battery->charging_start_time = 0;
 		battery->charging_passed_time = 0;
 		battery->charging_next_time = 0;
+#ifndef CONFIG_MACH_SEC_GOLDEN
 		battery->charging_fullcharged_time = 0;
+#endif
 		battery->full_check_cnt = 0;
 	}
 
@@ -382,6 +384,7 @@ static bool sec_bat_battery_cable_check(struct sec_battery_info *battery)
 
 	battery->present = true;
 
+#ifndef CONFIG_MACH_SEC_GOLDEN
 	if (battery->health == POWER_SUPPLY_HEALTH_UNSPEC_FAILURE) {
 		battery->health = POWER_SUPPLY_HEALTH_GOOD;
 		if (battery->status == POWER_SUPPLY_STATUS_NOT_CHARGING) {
@@ -389,6 +392,7 @@ static bool sec_bat_battery_cable_check(struct sec_battery_info *battery)
 			sec_bat_set_charge(battery, true);
 		}
 	}
+#endif
 
 	dev_dbg(battery->dev, "%s: Battery Connected\n", __func__);
 
@@ -503,7 +507,11 @@ static bool sec_bat_check_recharge(struct sec_battery_info *battery)
 			dev_info(battery->dev,
 				"%s: Re-charging by SOC (%d)\n",
 				__func__, battery->capacity);
+#ifndef CONFIG_MACH_SEC_GOLDEN
 			goto check_recharge_check_count;
+#else
+			return true;
+#endif
 		}
 
 		if ((battery->pdata->recharge_condition_type &
@@ -513,7 +521,11 @@ static bool sec_bat_check_recharge(struct sec_battery_info *battery)
 			dev_info(battery->dev,
 				"%s: Re-charging by average VCELL (%d)\n",
 				__func__, battery->voltage_avg);
+#ifndef CONFIG_MACH_SEC_GOLDEN
 			goto check_recharge_check_count;
+#else
+			return true;
+#endif
 		}
 
 		if ((battery->pdata->recharge_condition_type &
@@ -523,10 +535,15 @@ static bool sec_bat_check_recharge(struct sec_battery_info *battery)
 			dev_info(battery->dev,
 				"%s: Re-charging by VCELL (%d)\n",
 				__func__, battery->voltage_now);
+#ifndef CONFIG_MACH_SEC_GOLDEN
 			goto check_recharge_check_count;
+#else
+			return true;
+#endif
 		}
 	}
 
+#ifndef CONFIG_MACH_SEC_GOLDEN
 	battery->recharge_check_cnt = 0;
 	return false;
 
@@ -542,6 +559,7 @@ check_recharge_check_count:
 		battery->pdata->recharge_check_count)
 		return true;
 	else
+#endif
 	return false;
 }
 
@@ -562,7 +580,9 @@ static bool sec_bat_voltage_check(struct sec_battery_info *battery)
 	/* Re-Charging check */
 	if (sec_bat_check_recharge(battery)) {
 		battery->charging_mode = SEC_BATTERY_CHARGING_RECHARGING;
+#ifndef CONFIG_MACH_SEC_GOLDEN
 		battery->is_recharging = true;
+#endif
 		sec_bat_set_charge(battery, true);
 		return false;
 	}
@@ -804,7 +824,12 @@ static bool sec_bat_temperature_check(
 			if ((battery->health == POWER_SUPPLY_HEALTH_GOOD) &&
 				(battery->status ==
 				 POWER_SUPPLY_STATUS_NOT_CHARGING)) {
+#ifndef CONFIG_MACH_SEC_GOLDEN
 				if (battery->is_recharging)
+#else
+				if (battery->charging_mode ==
+					SEC_BATTERY_CHARGING_RECHARGING)
+#endif
 					battery->status =
 						POWER_SUPPLY_STATUS_FULL;
 				else	/* Normal Charging */
@@ -887,6 +912,7 @@ static void sec_bat_event_set(
 static bool sec_bat_check_fullcharged_condition(
 					struct sec_battery_info *battery)
 {
+#ifndef CONFIG_MACH_SEC_GOLDEN
 	int full_check_type;
 
 	if (battery->is_recharging) {
@@ -899,6 +925,9 @@ static bool sec_bat_check_fullcharged_condition(
 	}
 
 	switch (full_check_type) {
+#else
+	switch (battery->pdata->full_check_type) {
+#endif
 	case SEC_BATTERY_FULLCHARGED_CHGGPIO:
 	case SEC_BATTERY_FULLCHARGED_CHGPSY:
 		/* NO additional full condition
@@ -908,13 +937,20 @@ static bool sec_bat_check_fullcharged_condition(
 	case SEC_BATTERY_FULLCHARGED_CHGINT:
 		return false;
 	case SEC_BATTERY_FULLCHARGED_ADC:
+#ifdef CONFIG_MACH_SEC_GOLDEN
+	case SEC_BATTERY_FULLCHARGED_ADC_DUAL:
+#endif
 	case SEC_BATTERY_FULLCHARGED_FG_CURRENT:
+#ifndef CONFIG_MACH_SEC_GOLDEN
 	case SEC_BATTERY_FULLCHARGED_TIME:
 	case SEC_BATTERY_FULLCHARGED_SOC:
 		break;
 	case SEC_BATTERY_FULLCHARGED_NONE:
 	default:
 		return true;
+#else
+	case SEC_BATTERY_FULLCHARGED_FG_CURRENT_DUAL: 
+#endif
 		break;
 	}
 
@@ -995,12 +1031,20 @@ static bool sec_bat_time_management(
 
 	switch (battery->status) {
 	case POWER_SUPPLY_STATUS_FULL:
+#ifndef CONFIG_MACH_SEC_GOLDEN
 		if (battery->is_recharging && (charging_time >
 		   battery->pdata->recharging_total_time)) {
+#else
+		if (battery->charging_mode == SEC_BATTERY_CHARGING_RECHARGING &&
+			(charging_time >
+			battery->pdata->recharging_total_time)) {
+#endif
 			dev_dbg(battery->dev,
 				"%s: Recharging Timer Expired\n", __func__);
 			battery->charging_mode = SEC_BATTERY_CHARGING_NONE;
+#ifndef CONFIG_MACH_SEC_GOLDEN
 			battery->is_recharging = false;
+#endif
 			if (sec_bat_set_charge(battery, false)) {
 				dev_err(battery->dev,
 					"%s: Fail to Set Charger\n", __func__);
@@ -1013,7 +1057,12 @@ static bool sec_bat_time_management(
 	case POWER_SUPPLY_STATUS_CHARGING:
 		if ((battery->pdata->full_condition_type &
 		SEC_BATTERY_FULL_CONDITION_NOTIMEFULL) &&
+#ifndef CONFIG_MACH_SEC_GOLDEN
 		(battery->is_recharging && (charging_time >
+#else
+		(battery->charging_mode == SEC_BATTERY_CHARGING_RECHARGING &&
+		(charging_time >
+#endif
 		battery->pdata->recharging_total_time))) {
 			dev_dbg(battery->dev,
 			"%s: Recharging Timer Expired\n", __func__);
@@ -1022,15 +1071,24 @@ static bool sec_bat_time_management(
 				battery->status =
 					POWER_SUPPLY_STATUS_FULL;
 			battery->charging_mode = SEC_BATTERY_CHARGING_NONE;
+#ifndef CONFIG_MACH_SEC_GOLDEN
 			battery->is_recharging = false;
+#endif
 			if (sec_bat_set_charge(battery, false)) {
 				dev_err(battery->dev,
 					"%s: Fail to Set Charger\n", __func__);
 				return true;
 			}
 			return false;
+#ifndef CONFIG_MACH_SEC_GOLDEN
 		} else if (!battery->is_recharging &&
 			(charging_time > battery->pdata->charging_total_time)) {
+#else
+				} else if (battery->charging_mode ==
+					SEC_BATTERY_CHARGING_NORMAL &&
+					(charging_time >
+					battery->pdata->charging_total_time)) {
+#endif
 			dev_info(battery->dev,
 				"%s: Charging Timer Expired\n", __func__);
 			if (battery->pdata->full_condition_type &
@@ -1086,13 +1144,16 @@ static bool sec_bat_check_fullcharged(
 	int current_adc;
 	bool ret;
 	int err;
+#ifndef CONFIG_MACH_SEC_GOLDEN
 	int full_check_type;
+#endif
 
 	ret = false;
 
 	if (!sec_bat_check_fullcharged_condition(battery))
 		goto not_full_charged;
 
+#ifndef CONFIG_MACH_SEC_GOLDEN
 	if (battery->is_recharging)
 		full_check_type = battery->pdata->full_check_type_recharge;
 	else {
@@ -1103,6 +1164,34 @@ static bool sec_bat_check_fullcharged(
 	}
 
 	switch (full_check_type) {
+#else
+	switch (battery->pdata->full_check_type) {
+	case SEC_BATTERY_FULLCHARGED_ADC_DUAL:
+		if (battery->charging_mode ==
+			SEC_BATTERY_CHARGING_2ND) {
+			current_adc =
+				sec_bat_get_adc_value(battery,
+				SEC_BAT_ADC_CHANNEL_FULL_CHECK);
+
+			dev_info(battery->dev,
+				"%s: Current ADC (%d)\n",
+				__func__, current_adc);
+
+			if (current_adc < 0)
+				break;
+			battery->current_adc = current_adc;
+
+			if (battery->current_adc <
+				battery->pdata->full_check_adc_2nd) {
+				battery->full_check_cnt++;
+				dev_info(battery->dev,
+					"%s: Full Check 2nd (%d)\n",
+					__func__, battery->full_check_cnt);
+			} else
+				battery->full_check_cnt = 0;
+			break;
+	}
+#endif
 	case SEC_BATTERY_FULLCHARGED_ADC:
 		current_adc =
 			sec_bat_get_adc_value(battery,
@@ -1116,6 +1205,7 @@ static bool sec_bat_check_fullcharged(
 			break;
 		battery->current_adc = current_adc;
 
+#ifndef CONFIG_MACH_SEC_GOLDEN
 		if (battery->is_recharging) {
 			if (battery->current_adc <
 			    battery->pdata->charging_current_recharging[
@@ -1141,15 +1231,37 @@ static bool sec_bat_check_fullcharged(
 			} else
 				battery->full_check_cnt = 0;
 		}
+#else
+		if (battery->current_adc <
+			battery->pdata->full_check_adc_1st) {
+			battery->full_check_cnt++;
+			dev_info(battery->dev,
+				"%s: Full Check ADC (%d)\n",
+				__func__, battery->full_check_cnt);
+		} else
+			battery->full_check_cnt = 0;
+#endif
 		break;
-
+#ifndef CONFIG_MACH_SEC_GOLDEN
 	case SEC_BATTERY_FULLCHARGED_FG_CURRENT:
 		if (battery->is_recharging) {
+#else
+
+	case SEC_BATTERY_FULLCHARGED_FG_CURRENT_DUAL:
+		if (battery->charging_mode ==
+			SEC_BATTERY_CHARGING_2ND) {
+#endif
 			if (battery->current_avg <
+#ifndef CONFIG_MACH_SEC_GOLDEN
 			     battery->pdata->charging_current_recharging[
 				     battery->cable_type].full_check_current_2nd) {
+#else
+				battery->pdata->charging_current[
+				battery->cable_type].full_check_current_2nd) {
+#endif
 				battery->full_check_cnt++;
 				dev_dbg(battery->dev,
+#ifndef CONFIG_MACH_SEC_GOLDEN
 					"%s: Full Check Current (%d)\n",
 					__func__,
 					battery->full_check_cnt);
@@ -1236,9 +1348,28 @@ static bool sec_bat_check_fullcharged(
 					"%s: Full Check SOC (%d)\n",
 					__func__,
 					battery->full_check_cnt);
+#else
+					"%s: Full Check Current 2nd (%d)\n",
+					__func__, battery->full_check_cnt);
+#endif
 			} else
 				battery->full_check_cnt = 0;
+#ifdef CONFIG_MACH_SEC_GOLDEN
+	break;
+#endif
 		}
+#ifdef CONFIG_MACH_SEC_GOLDEN
+	case SEC_BATTERY_FULLCHARGED_FG_CURRENT:
+		if (battery->current_avg <
+			battery->pdata->charging_current[
+			battery->cable_type].full_check_current_1st) {
+			battery->full_check_cnt++;
+			dev_dbg(battery->dev,
+				"%s: Full Check Current (%d)\n",
+				__func__, battery->full_check_cnt);
+		} else
+			battery->full_check_cnt = 0;
+#endif
 		break;
 
 	case SEC_BATTERY_FULLCHARGED_CHGGPIO:
@@ -1275,6 +1406,7 @@ static bool sec_bat_check_fullcharged(
 			battery->full_check_cnt = 0;
 		break;
 
+#ifndef CONFIG_MACH_SEC_GOLDEN
 	/* If these is NOT full check type or NONE full check type,
 	 * it is full-charged
 	 */
@@ -1282,6 +1414,7 @@ static bool sec_bat_check_fullcharged(
 		battery->full_check_cnt = 0;
 		ret = true;
 		break;
+#endif
 	default:
 		dev_err(battery->dev,
 			"%s: Invalid Full Check\n", __func__);
@@ -1303,18 +1436,31 @@ static void sec_bat_do_fullcharged(
 {
 	union power_supply_propval value;
 
+#ifndef CONFIG_MACH_SEC_GOLDEN
 	battery->status = POWER_SUPPLY_STATUS_FULL;
 
 	if (battery->charging_mode == SEC_BATTERY_CHARGING_1ST) {
+#else
+	if (((battery->pdata->full_check_type ==
+		SEC_BATTERY_FULLCHARGED_ADC_DUAL) ||
+		(battery->pdata->full_check_type ==
+		SEC_BATTERY_FULLCHARGED_FG_CURRENT_DUAL)) &&
+		(battery->charging_mode ==
+		SEC_BATTERY_CHARGING_NORMAL)) {
+#endif
 		battery->charging_mode = SEC_BATTERY_CHARGING_2ND;
+#ifndef CONFIG_MACH_SEC_GOLDEN
 		battery->charging_fullcharged_time =
 			battery->charging_passed_time;
 		/*
 		 *sec_bat_set_charge(battery, true);
 		 */
+#endif
 	} else {
 		battery->charging_mode = SEC_BATTERY_CHARGING_NONE;
+#ifndef CONFIG_MACH_SEC_GOLDEN
 		battery->is_recharging = false;
+#endif
 		sec_bat_set_charge(battery, false);
 
 		value.intval = POWER_SUPPLY_STATUS_FULL;
@@ -1329,7 +1475,9 @@ static void sec_bat_do_fullcharged(
 	 */
 	if (battery->pdata->polling_type == SEC_BATTERY_MONITOR_ALARM)
 		wake_lock_timeout(&battery->vbus_wake_lock, HZ * 10);
-
+#ifdef CONFIG_MACH_SEC_GOLDEN
+	battery->status = POWER_SUPPLY_STATUS_FULL;
+#endif
 }
 
 static bool sec_bat_fullcharged_check(
@@ -1346,11 +1494,15 @@ static bool sec_bat_fullcharged_check(
 		sec_bat_do_fullcharged(battery);
 
 	dev_info(battery->dev,
+#ifndef CONFIG_MACH_SEC_GOLDEN
 		 "%s: Charging Mode : %s\n", __func__,
 		 battery->is_recharging ?
 		 sec_bat_charging_mode_str[SEC_BATTERY_CHARGING_RECHARGING] :
 		 sec_bat_charging_mode_str[battery->charging_mode]);
-
+#else
+		"%s: Charging Mode : %s\n", __func__,
+		sec_bat_charging_mode_str[battery->charging_mode]);
+#endif
 	return true;
 };
 
@@ -1381,7 +1533,9 @@ static void sec_bat_get_battery_info(
 		POWER_SUPPLY_PROP_CURRENT_AVG, value);
 	battery->current_avg = value.intval;
 
+#ifndef CONFIG_MACH_SEC_GOLDEN
 	value.intval = 0;
+#endif
 
 	psy_do_property("sec-fuelgauge", get,
 		POWER_SUPPLY_PROP_CAPACITY, value);
@@ -1515,9 +1669,13 @@ static unsigned int sec_bat_get_polling_time(
 		battery->polling_short = false;
 		break;
 	case POWER_SUPPLY_STATUS_FULL:
+#ifndef CONFIG_MACH_SEC_GOLDEN
 		if ((battery->pdata->full_condition_type &
 		     SEC_BATTERY_FULL_CONDITION_SLEEPINFULL) &&
 		    battery->polling_in_sleep) {
+#else
+		if (!battery->polling_in_sleep) {
+#endif
 			if (battery->charging_mode ==
 				SEC_BATTERY_CHARGING_NONE)
 				battery->polling_time =
@@ -1640,15 +1798,23 @@ static void sec_bat_monitor_work(
 
 	dev_dbg(battery->dev, "%s: Start\n", __func__);
 
+#ifndef CONFIG_MACH_SEC_GOLDEN
 	/* monitor once after wakeup */
 	if (battery->polling_in_sleep)
 		battery->polling_in_sleep = false;
+#endif
 
 	/* 0. test mode */
 	if (battery->test_activated) {
 		dev_dbg(battery->dev, "%s: Test Mode\n", __func__);
 		goto continue_monitor;
 	}
+
+#ifdef CONFIG_MACH_SEC_GOLDEN
+	/* monitor once after wakeup */
+	if (battery->polling_in_sleep)
+		battery->polling_in_sleep = false;
+#endif
 
 	sec_bat_get_battery_info(battery);
 
@@ -1709,17 +1875,23 @@ static void sec_bat_cable_work(struct work_struct *work)
 	 */
 	wake_lock_timeout(&battery->vbus_wake_lock, HZ * 5);
 
+#ifndef CONFIG_MACH_SEC_GOLDEN
 	if (battery->cable_type == POWER_SUPPLY_TYPE_BATTERY ||
 	    ((battery->pdata->cable_check_type &
 	      SEC_BATTERY_CABLE_CHECK_NOINCOMPATIBLECHARGE) &&
 	     battery->cable_type == POWER_SUPPLY_TYPE_UNKNOWN)) {
+#else
+	if (battery->cable_type == POWER_SUPPLY_TYPE_BATTERY) {
+#endif
 		if (battery->status == POWER_SUPPLY_STATUS_FULL) {
 			val.intval = POWER_SUPPLY_TYPE_BATTERY;
 			psy_do_property("sec-fuelgauge", set,
 					POWER_SUPPLY_PROP_CHARGE_FULL, val);
 		}
 		battery->charging_mode = SEC_BATTERY_CHARGING_NONE;
+#ifndef CONFIG_MACH_SEC_GOLDEN
 		battery->is_recharging = false;
+#endif
 		battery->status = POWER_SUPPLY_STATUS_DISCHARGING;
 		battery->health = POWER_SUPPLY_HEALTH_GOOD;
 
@@ -1731,6 +1903,7 @@ static void sec_bat_cable_work(struct work_struct *work)
 			battery->charging_mode = SEC_BATTERY_CHARGING_NONE;
 			battery->status = POWER_SUPPLY_STATUS_DISCHARGING;
 		} else {
+#ifndef CONFIG_MACH_SEC_GOLDEN
 			if (battery->pdata->full_check_type !=
 			    SEC_BATTERY_FULLCHARGED_NONE)
 				battery->charging_mode =
@@ -1738,6 +1911,9 @@ static void sec_bat_cable_work(struct work_struct *work)
 			else
 				battery->charging_mode =
 					SEC_BATTERY_CHARGING_2ND;
+#else
+			battery->charging_mode = SEC_BATTERY_CHARGING_NORMAL;
+#endif
 			battery->status = POWER_SUPPLY_STATUS_CHARGING;
 		}
 
@@ -2038,11 +2214,15 @@ ssize_t sec_bat_store_attrs(
 		}
 		break;
 	case UPDATE:
+#ifndef CONFIG_MACH_SEC_GOLDEN
 		if (sscanf(buf, "%d\n", &x) == 1) {
+#endif
 			/* update battery info */
 			sec_bat_get_battery_info(battery);
 			ret = count;
+#ifndef CONFIG_MACH_SEC_GOLDEN
 		}
+#endif
 		break;
 	case TEST_MODE:
 		if (sscanf(buf, "%d\n", &x) == 1) {
@@ -2154,20 +2334,27 @@ static int sec_bat_set_property(struct power_supply *psy,
 {
 	struct sec_battery_info *battery =
 		container_of(psy, struct sec_battery_info, psy_bat);
+#ifndef CONFIG_MACH_SEC_GOLDEN
 	int current_cable_type;
 	int full_check_type;
-
+#endif
 	dev_dbg(battery->dev,
 		"%s: (%d,%d)\n", __func__, psp, val->intval);
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_STATUS:
+#ifndef CONFIG_MACH_SEC_GOLDEN
 		if (battery->charging_mode == SEC_BATTERY_CHARGING_1ST)
 			full_check_type = battery->pdata->full_check_type;
 		else
 			full_check_type = battery->pdata->full_check_type_2nd;
 		if ((full_check_type == SEC_BATTERY_FULLCHARGED_CHGINT) &&
 		    (val->intval == POWER_SUPPLY_STATUS_FULL))
+#else
+		if ((battery->pdata->full_check_type ==
+			SEC_BATTERY_FULLCHARGED_CHGINT) &&
+			(val->intval == POWER_SUPPLY_STATUS_FULL))
+#endif
 			sec_bat_do_fullcharged(battery);
 		battery->status = val->intval;
 		break;
@@ -2417,7 +2604,9 @@ static int __devinit sec_battery_probe(struct platform_device *pdev)
 	battery->charging_start_time = 0;
 	battery->charging_passed_time = 0;
 	battery->charging_next_time = 0;
+#ifndef CONFIG_MACH_SEC_GOLDEN
 	battery->charging_fullcharged_time = 0;
+#endif
 
 	alarm_init(&battery->event_termination_alarm,
 			ANDROID_ALARM_ELAPSED_REALTIME_WAKEUP,
@@ -2433,7 +2622,9 @@ static int __devinit sec_battery_probe(struct platform_device *pdev)
 		pdata->temp_low_threshold_normal;
 
 	battery->charging_mode = SEC_BATTERY_CHARGING_NONE;
+#ifndef CONFIG_MACH_SEC_GOLDEN
 	battery->is_recharging = false;
+#endif
 	battery->cable_type = POWER_SUPPLY_TYPE_BATTERY;
 	battery->test_activated = false;
 	battery->factory_mode = false;

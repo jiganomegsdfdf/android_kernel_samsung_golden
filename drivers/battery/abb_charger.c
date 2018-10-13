@@ -583,7 +583,7 @@ static int ab8500_chg_en(struct ab8500_charger_info *di, int enable)
 				__func__);
 			return ret;
 		}
-
+#ifndef CONFIG_MACH_SEC_GOLDEN
 #ifdef CONFIG_AB8505_SMPL
 		/* SMPL issue workaround by disabling NMOS always */
 #ifdef CONFIG_CHARGER_AB8500_USE_MAINCHGBLK
@@ -623,6 +623,7 @@ static int ab8500_chg_en(struct ab8500_charger_info *di, int enable)
 			dev_err(di->dev, "%s write failed\n", __func__);
 			return ret;
 		}
+#endif
 #endif
 
 #ifdef CONFIG_CHARGER_AB8500_USE_MAINCHGBLK
@@ -713,6 +714,7 @@ static int ab8500_chg_en(struct ab8500_charger_info *di, int enable)
 	return ret;
 }
 
+#ifndef CONFIG_MACH_SEC_GOLDEN
 static void ab8500_chg_check_input_curr(struct ab8500_charger_info *di)
 {
 	int ret;
@@ -731,6 +733,8 @@ static void ab8500_chg_check_input_curr(struct ab8500_charger_info *di)
 		ab8500_chg_en(di, true);
 	}
 }
+#endif
+
 static struct ab8500_charger_event_list ab8500_event_list[] = {
 	{"MAIN_EXT_CH_NOT_OK", F_MAIN_EXT_CH_NOT_OK, M_MAIN_EXT_CH_NOT_OK},
 	{"USB_CHARGER_NOT_OK", F_USB_CHARGER_NOT_OK, M_USB_CHARGER_NOT_OK},
@@ -799,6 +803,7 @@ static int ab8500_chg_reenable(struct ab8500_charger_info *di)
 			return ret;
 		}
 
+#ifndef CONFIG_MACH_SEC_GOLDEN
 #ifdef CONFIG_AB8505_SMPL
 		/* SMPL issue workaround by disabling NMOS always */
 		ret = abx500_set_register_interruptible(di->dev,
@@ -824,6 +829,7 @@ static int ab8500_chg_reenable(struct ab8500_charger_info *di)
 			dev_err(di->dev, "%s write failed\n", __func__);
 			return ret;
 		}
+#endif
 #endif
 		if (!get_battery_data(di).enable_overshoot)
 			overshoot = MAIN_CH_NO_OVERSHOOT_ENA_N;
@@ -893,6 +899,7 @@ static int ab8500_chg_reenable(struct ab8500_charger_info *di)
 			return ret;
 		}
 
+#ifndef CONFIG_MACH_SEC_GOLDEN
 #ifdef CONFIG_AB8505_SMPL
 		/* SMPL issue workaround by disabling NMOS always */
 		ret = abx500_set_register_interruptible(di->dev,
@@ -919,6 +926,8 @@ static int ab8500_chg_reenable(struct ab8500_charger_info *di)
 			return ret;
 		}
 #endif
+#endif
+
 		if (!get_battery_data(di).enable_overshoot)
 			overshoot = USB_CHG_NO_OVERSHOOT_ENA_N;
 
@@ -1000,9 +1009,13 @@ static void ab8500_chg_attached_work(struct work_struct *work)
 
 	int i;
 	int ret;
+#ifndef CONFIG_MACH_SEC_GOLDEN
 	int state;
-
+#endif
 	u8 statval;
+#ifdef CONFIG_MACH_SEC_GOLDEN
+	union power_supply_propval value;
+#endif
 
 	struct ab8500_charger_info *di = container_of(work,
 					 struct ab8500_charger_info,
@@ -1028,9 +1041,16 @@ static void ab8500_chg_attached_work(struct work_struct *work)
 	ab8500_chg_en(di, false);
 	dev_info(di->dev, "%s, cable detach error occur\n", __func__);
 
+#ifndef CONFIG_MACH_SEC_GOLDEN
 	state = POWER_SUPPLY_TYPE_BATTERY;
 	if (get_battery_data(di).abb_set_cable_state)
 		get_battery_data(di).abb_set_cable_state(state);
+#else
+	/* we should verify this routine */
+	value.intval = POWER_SUPPLY_TYPE_BATTERY;
+	psy_do_property("battery", set,
+			POWER_SUPPLY_PROP_ONLINE, value);
+#endif
 
 	mutex_lock(&di->chg_attached_mutex);
 	if (wake_lock_active(&di->chg_attached_wake_lock))
@@ -1050,8 +1070,13 @@ static void ab8500_chg_attached_work(struct work_struct *work)
 {
 	int i;
 	int ret;
-	u8 statval;
+#ifndef CONFIG_MACH_SEC_GOLDEN
 	int state;
+#endif
+	u8 statval;
+#ifdef CONFIG_MACH_SEC_GOLDEN
+	union power_supply_propval value;
+#endif
 
 	struct ab8500_charger_info *di = container_of(work,
 					 struct ab8500_charger_info,
@@ -1077,9 +1102,16 @@ static void ab8500_chg_attached_work(struct work_struct *work)
 
 	dev_info(di->dev, "%s, cable detach error occur\n", __func__);
 
+#ifndef CONFIG_MACH_SEC_GOLDEN
 	state = POWER_SUPPLY_TYPE_BATTERY;
 	if (get_battery_data(di).abb_set_cable_state)
 		get_battery_data(di).abb_set_cable_state(state);
+#else
+	/* we should verify this routine */
+	value.intval = POWER_SUPPLY_TYPE_BATTERY;
+	psy_do_property("battery", set,
+			POWER_SUPPLY_PROP_ONLINE, value);
+#endif
 
 	mutex_lock(&di->chg_attached_mutex);
 	if (wake_lock_active(&di->chg_attached_wake_lock))
@@ -1140,7 +1172,9 @@ static void ab8500_chg_set_charge(struct ab8500_charger_info *di,
 		queue_delayed_work(di->charger_wq,
 				   &di->kick_wd_work,
 				   round_jiffies(WD_KICK_INTERVAL));
+#ifndef CONFIG_MACH_SEC_GOLDEN
 		if (is_ab8500(di->parent)) {
+#endif
 			mutex_lock(&di->chg_attached_mutex);
 			if (!wake_lock_active(&di->chg_attached_wake_lock))
 				wake_lock(&di->chg_attached_wake_lock);
@@ -1148,19 +1182,25 @@ static void ab8500_chg_set_charge(struct ab8500_charger_info *di,
 			queue_delayed_work(di->charger_wq,
 					   &di->chg_attached_work,
 					   HZ);
+#ifndef CONFIG_MACH_SEC_GOLDEN
 		}
+#endif
 	} else {
 		ab8500_chg_en(di, false);
 		di->is_charging = false;
 		cancel_delayed_work(&di->kick_wd_work);
+#ifndef CONFIG_MACH_SEC_GOLDEN
 		if (is_ab8500(di->parent)) {
+#endif
 			cancel_delayed_work_sync(
 				&di->chg_attached_work);
 			mutex_lock(&di->chg_attached_mutex);
 			if (wake_lock_active(&di->chg_attached_wake_lock))
 				wake_unlock(&di->chg_attached_wake_lock);
 			mutex_unlock(&di->chg_attached_mutex);
+#ifndef CONFIG_MACH_SEC_GOLDEN
 		}
+#endif
 	}
 }
 
@@ -1190,6 +1230,7 @@ static bool ab8500_chg_check_ovp_status(struct ab8500_charger_info *di)
 	}
 }
 
+#ifndef CONFIG_MACH_SEC_GOLDEN
 static void ab8500_chg_reset_chg_counter_work(struct work_struct *work)
 {
 	struct ab8500_charger_info *di = container_of(work,
@@ -1207,19 +1248,24 @@ static void ab8500_chg_reset_chg_counter_work(struct work_struct *work)
 	ab8500_chg_en(di, true);
 
 }
-
+#endif
 
 static void ab8500_chg_check_hw_failure_delay_work(struct work_struct *work)
 {
 	struct ab8500_charger_info *di = container_of(work,
 		      struct ab8500_charger_info, check_hw_failure_work.work);
 
+#ifndef CONFIG_MACH_SEC_GOLDEN
 	int state;
+#endif
 
 	dev_info(di->dev, "%s, ab850x charger bug\n", __func__);
+
+#ifndef CONFIG_MACH_SEC_GOLDEN
 	state = POWER_SUPPLY_TYPE_BATTERY;
 	if (get_battery_data(di).abb_set_cable_state)
 		get_battery_data(di).abb_set_cable_state(state);
+#endif
 }
 
 /**
@@ -1326,11 +1372,19 @@ static void ab8500_chg_check_hw_failure_work(struct work_struct *work)
 			ab8500_chg_set_charge(di, false);
 			if ((di->flags.irq_flag & F_CHG_WD_EXP) ||
 			    (di->flags.irq_flag & F_MAIN_THERMAL_PROT) ||
+#ifndef CONFIG_MACH_SEC_GOLDEN
 			    (di->flags.irq_flag & F_USB_THERMAL_PROT) ||
 			    (di->flags.irq_flag & F_USB_CHARGER_NOT_OK)) {
+#else
+			    (di->flags.irq_flag & F_USB_THERMAL_PROT)) {
+#endif
 				queue_delayed_work(di->charger_wq,
 					&di->check_hw_failure_delay_work,
+#ifndef CONFIG_MACH_SEC_GOLDEN
 					round_jiffies(HZ*1));
+#else
+					round_jiffies(HZ*15));
+#endif
 			}
 		} else if (!(chg_status & ab8500_event_list[i].reg_mask) &&
 			   (di->flags.irq_flag_shadow &
@@ -1528,7 +1582,10 @@ static irqreturn_t ab8500_chg_vbusdetf_handler(int irq, void *data)
 	dev_err(di->dev, "VBUS falling detected\n");
 
 	get_battery_data(di).abb_set_vbus_state(false);
+
+#ifndef CONFIG_MACH_SEC_GOLDEN
 	di->usbnotok_count = 0;
+#endif
 
 	return IRQ_HANDLED;
 }
@@ -1626,8 +1683,11 @@ static irqreturn_t ab8500_chg_usbchthprotf_handler(int irq, void *data)
 static irqreturn_t ab8500_chg_usbchargernotokr_handler(int irq, void *data)
 {
 	struct ab8500_charger_info *di = data;
+
+#ifndef CONFIG_MACH_SEC_GOLDEN
 	u8 usblinkstatus;
 	int ret = 0;
+#endif
 
 	dev_err(di->dev, "Not allowed USB charger detected\n");
 
@@ -1635,6 +1695,7 @@ static irqreturn_t ab8500_chg_usbchargernotokr_handler(int irq, void *data)
 	if (!di->flags.irq_first)
 		di->flags.irq_first |= F_USB_CHARGER_NOT_OK;
 
+#ifndef CONFIG_MACH_SEC_GOLDEN
 	ret = abx500_get_register_interruptible(di->dev,
 				0x05, 0x94, &usblinkstatus);
 
@@ -1653,6 +1714,9 @@ static irqreturn_t ab8500_chg_usbchargernotokr_handler(int irq, void *data)
 					   &di->check_hw_failure_work, 0);
 		}
 	}
+#else
+	queue_delayed_work(di->charger_wq, &di->check_hw_failure_work, 0);
+#endif
 
 	return IRQ_HANDLED;
 }
@@ -2049,7 +2113,9 @@ static int ab8500_chg_resume(struct platform_device *pdev)
 			&di->check_hw_failure_work, 0);
 	}
 
+#ifndef CONFIG_MACH_SEC_GOLDEN
 	if (is_ab8500(di->parent))
+#endif
 		flush_delayed_work_sync(&di->chg_attached_work);
 	flush_delayed_work_sync(&di->kick_wd_work);
 
@@ -2065,7 +2131,9 @@ static int ab8500_chg_suspend(struct platform_device *pdev,
 	if (delayed_work_pending(&di->check_hw_failure_work))
 		cancel_delayed_work(&di->check_hw_failure_work);
 
+#ifndef CONFIG_MACH_SEC_GOLDEN
 	if (is_ab8500(di->parent))
+#endif
 		flush_delayed_work_sync(&di->chg_attached_work);
 	flush_delayed_work_sync(&di->kick_wd_work);
 
@@ -2192,8 +2260,10 @@ static int ab8500_chg_get_property(struct power_supply *psy,
 		break;
 	/* Battery VF check */
 	case POWER_SUPPLY_PROP_PRESENT:
+#ifndef CONFIG_MACH_SEC_GOLDEN
 		if (di->is_charging)
 			ab8500_chg_check_input_curr(di);
+#endif
 		val->intval = ab8500_chg_vf_check(di);
 		break;
 	/* OVP Polling */
@@ -2208,11 +2278,11 @@ static int ab8500_chg_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_CURRENT_NOW:
 		val->intval = di->charging_current;
 		break;
-
+#ifndef CONFIG_MACH_SEC_GOLDEN
 	case POWER_SUPPLY_PROP_TECHNOLOGY:
 		ab8500_chg_dump_reg(di);
 		break;
-
+#endif
 	default:
 		return -EINVAL;
 	}
@@ -2375,8 +2445,10 @@ static int __devinit ab8500_chg_probe(struct platform_device *pdev)
 	INIT_DELAYED_WORK_DEFERRABLE(&di->check_hw_failure_delay_work,
 		ab8500_chg_check_hw_failure_delay_work);
 
+#ifndef CONFIG_MACH_SEC_GOLDEN
 	INIT_DELAYED_WORK_DEFERRABLE(&di->reset_chg_counter_work,
 		ab8500_chg_reset_chg_counter_work);
+#endif
 
 	INIT_DELAYED_WORK(&di->chg_attached_work,
 			  ab8500_chg_attached_work);

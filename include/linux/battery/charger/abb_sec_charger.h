@@ -138,8 +138,13 @@ struct fg_parameters {
 	int accu_high_curr;
 	int high_curr_threshold;
 	int lowbat_threshold;
+#ifndef CONFIG_MACH_SEC_GOLDEN
 	int battok_raising_th_sel0;
 	int battok_falling_th_sel1;
+#else
+	int battok_falling_th_sel0;
+	int battok_raising_th_sel1;
+#endif
 	int user_cap_limit;
 	int maint_thres;
 #ifdef CONFIG_AB8505_SMPL
@@ -162,7 +167,9 @@ struct battery_data_t {
 	int lowbat_zero_voltage;
 
 	void (*abb_set_vbus_state)(bool state);
+#ifndef CONFIG_MACH_SEC_GOLDEN
 	void (*abb_set_cable_state)(int state);
+#endif
 	const struct battery_info *bat_info;
 	const struct capacity_levels *cap_levels;
 	const struct fg_parameters *fg_params;

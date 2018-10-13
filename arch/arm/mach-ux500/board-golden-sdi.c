@@ -205,11 +205,10 @@ static int sdi0_ios_handler(struct device *dev, struct mmc_ios *ios,  enum rpm_s
 		
 	switch (ios->power_mode) {
 	case MMC_POWER_UP:
-		break;
 	case MMC_POWER_ON:
 		/* Enable level shifter */
 		gpio_direction_output(TXS0206_EN_GOLDEN_BRINGUP, 1);
-		udelay(500);
+		udelay(100);
 		break;
 	case MMC_POWER_OFF:
 		/* Disable level shifter */

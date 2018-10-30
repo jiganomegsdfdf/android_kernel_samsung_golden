@@ -65,40 +65,7 @@ TRACE_EVENT(machine_suspend,
 	TP_printk("state=%lu", (unsigned long)__entry->state)
 );
 
-DECLARE_EVENT_CLASS(wakeup_source,
-
-	TP_PROTO(const char *name, unsigned int state),
-
-	TP_ARGS(name, state),
-
-	TP_STRUCT__entry(
-		__string(       name,           name            )
-		__field(        u64,            state           )
-	),
-
-	TP_fast_assign(
-		__assign_str(name, name);
-		__entry->state = state;
-	),
-
-	TP_printk("%s state=0x%lx", __get_str(name),
-		(unsigned long)__entry->state)
-);
-
-DEFINE_EVENT(wakeup_source, wakeup_source_activate,
-
-	TP_PROTO(const char *name, unsigned int state),
-
-	TP_ARGS(name, state)
-);
-
-DEFINE_EVENT(wakeup_source, wakeup_source_deactivate,
-
-	TP_PROTO(const char *name, unsigned int state),
-
-	TP_ARGS(name, state)
-);
-
+/* This code will be removed after deprecation time exceeded (2.6.41) */
 #ifdef CONFIG_EVENT_POWER_TRACING_DEPRECATED
 
 /*
@@ -184,8 +151,6 @@ enum {
    events get removed */
 static inline void trace_power_start(u64 type, u64 state, u64 cpuid) {};
 static inline void trace_power_end(u64 cpuid) {};
-static inline void trace_power_start_rcuidle(u64 type, u64 state, u64 cpuid) {};
-static inline void trace_power_end_rcuidle(u64 cpuid) {};
 static inline void trace_power_frequency(u64 type, u64 state, u64 cpuid) {};
 #endif /* _PWR_EVENT_AVOID_DOUBLE_DEFINING_DEPRECATED */
 

@@ -153,6 +153,7 @@ static __net_init int setup_net(struct net *net, struct user_namespace *user_ns)
 
 	atomic_set(&net->count, 1);
 	atomic_set(&net->passive, 1);
+	net->user_ns = user_ns;
 
 #ifdef NETNS_REFCNT_DEBUG
 	atomic_set(&net->use_count, 0);

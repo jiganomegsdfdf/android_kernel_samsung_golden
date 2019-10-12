@@ -524,6 +524,10 @@ enum station_parameters_apply_mask {
  * @capability: station capability
  * @ext_capab: extended capabilities of the station
  * @ext_capab_len: number of extended capabilities
+ * @supported_channels: supported channels in IEEE 802.11 format
+ * @supported_channels_len: number of supported channels
+ * @supported_oper_classes: supported oper classes in IEEE 802.11 format
+ * @supported_oper_classes_len: number of supported operating classes
  */
 struct station_parameters {
 	u8 *supported_rates;
@@ -542,6 +546,10 @@ struct station_parameters {
 	u16 capability;
 	u8 *ext_capab;
 	u8 ext_capab_len;
+	const u8 *supported_channels;
+	u8 supported_channels_len;
+	const u8 *supported_oper_classes;
+	u8 supported_oper_classes_len;
 };
 
 /**
@@ -731,7 +739,6 @@ struct station_info {
 
 	const u8 *assoc_req_ies;
 	size_t assoc_req_ies_len;
-
 	u32 beacon_loss_count;
 	/*
 	 * Note: Add a new enum station_info_flags value for each new field and
@@ -993,6 +1000,15 @@ struct cfg80211_scan_request {
 };
 
 /**
+ * struct cfg80211_match_set - sets of attributes to match
+ *
+ * @ssid: SSID to be matched
+ */
+struct cfg80211_match_set {
+	struct cfg80211_ssid ssid;
+};
+
+/**
  * struct cfg80211_sched_scan_request - scheduled scan request description
  *
  * @ssids: SSIDs to scan for (passed in the probe_reqs in active scans)
@@ -1001,6 +1017,11 @@ struct cfg80211_scan_request {
  * @interval: interval between each scheduled scan cycle
  * @ie: optional information element(s) to add into Probe Request or %NULL
  * @ie_len: length of ie in octets
+ * @match_sets: sets of parameters to be matched for a scan result
+ * 	entry to be considered valid and to be passed to the host
+ * 	(others are filtered out).
+ *	If ommited, all results are passed.
+ * @n_match_sets: number of match sets
  * @wiphy: the wiphy this was for
  * @dev: the interface
  * @channels: channels to scan
@@ -1012,6 +1033,8 @@ struct cfg80211_sched_scan_request {
 	u32 interval;
 	const u8 *ie;
 	size_t ie_len;
+	struct cfg80211_match_set *match_sets;
+	int n_match_sets;
 
 	/* internal */
 	struct wiphy *wiphy;
@@ -1382,50 +1405,6 @@ struct cfg80211_update_ft_ies_params {
 };
 
 /**
- * struct cfg80211_dscp_exception - DSCP exception
- *
- * @dscp: DSCP value that does not adhere to the user priority range definition
- * @up: user priority value to which the corresponding DSCP value belongs
- */
-struct cfg80211_dscp_exception {
-	u8 dscp;
-	u8 up;
-};
-
-/**
- * struct cfg80211_dscp_range - DSCP range definition for user priority
- *
- * @low: lowest DSCP value of this user priority range, inclusive
- * @high: highest DSCP value of this user priority range, inclusive
- */
-struct cfg80211_dscp_range {
-	u8 low;
-	u8 high;
-};
-
-/* QoS Map Set element length defined in IEEE Std 802.11-2012, 8.4.2.97 */
-#define IEEE80211_QOS_MAP_MAX_EX	21
-#define IEEE80211_QOS_MAP_LEN_MIN	16
-#define IEEE80211_QOS_MAP_LEN_MAX \
-	(IEEE80211_QOS_MAP_LEN_MIN + 2 * IEEE80211_QOS_MAP_MAX_EX)
-
-/**
- * struct cfg80211_qos_map - QoS Map Information
- *
- * This struct defines the Interworking QoS map setting for DSCP values
- *
- * @num_des: number of DSCP exceptions (0..21)
- * @dscp_exception: optionally up to maximum of 21 DSCP exceptions from
- *	the user priority DSCP range definition
- * @up: DSCP range definition for a particular user priority
- */
-struct cfg80211_qos_map {
-	u8 num_des;
-	struct cfg80211_dscp_exception dscp_exception[IEEE80211_QOS_MAP_MAX_EX];
-	struct cfg80211_dscp_range up[8];
-};
-
-/**
  * struct cfg80211_ops - backend description for wireless configuration
  *
  * This struct is registered by fullmac card drivers and/or wireless stacks
@@ -1616,7 +1595,6 @@ struct cfg80211_qos_map {
  *	when number of MAC addresses entries is passed as 0. Drivers which
  *	advertise the support for MAC based ACL have to implement this callback.
  *
- * @set_qos_map: Set QoS mapping information to the driver
  */
 struct cfg80211_ops {
 	int	(*suspend)(struct wiphy *wiphy, struct cfg80211_wowlan *wow);
@@ -1818,10 +1796,6 @@ struct cfg80211_ops {
 
 	int (*set_mac_acl)(struct wiphy *wiphy, struct net_device *dev,
 			   const struct cfg80211_acl_data *params);
-	int (*set_qos_map)(struct wiphy *wiphy,
-			   struct net_device *dev,
-			   struct cfg80211_qos_map *qos_map);
-
 };
 
 /*
@@ -2114,9 +2088,16 @@ struct wiphy_vendor_command {
  *	this variable determines its size
  * @max_scan_ssids: maximum number of SSIDs the device can scan for in
  *	any given scan
+ * @max_sched_scan_ssids: maximum number of SSIDs the device can scan
+ *	for in any given scheduled scan
+ * @max_match_sets: maximum number of match sets the device can handle
+ *	when performing a scheduled scan, 0 if filtering is not
+ *	supported.
  * @max_scan_ie_len: maximum length of user-controlled IEs device can
  *	add to probe request frames transmitted during a scan, must not
  *	include fixed IEs like supported rates
+ * @max_sched_scan_ie_len: same as max_scan_ie_len, but for scheduled
+ *	scans
  * @coverage_class: current coverage class
  * @fw_version: firmware version for ethtool reporting
  * @hw_version: hardware version for ethtool reporting
@@ -2151,12 +2132,15 @@ struct wiphy_vendor_command {
  * @ht_capa_mod_mask:  Specify what ht_cap values can be over-ridden.
  *	If null, then none can be over-ridden.
  *
+ * @max_acl_mac_addrs: Maximum number of MAC addresses that the device
+ *	supports for ACL.
+ * @country_ie_pref: country IE processing preferences specified
+ *	by enum nl80211_country_ie_pref
+ *
  * @vendor_commands: array of vendor commands supported by the hardware
  * @n_vendor_commands: number of vendor commands
  * @vendor_events: array of vendor events supported by the hardware
  * @n_vendor_events: number of vendor events
- * @max_acl_mac_addrs: Maximum number of MAC addresses that the device
- *	supports for ACL.
  */
 struct wiphy {
 	/* assign these fields before you register the wiphy */
@@ -2188,7 +2172,10 @@ struct wiphy {
 
 	int bss_priv_size;
 	u8 max_scan_ssids;
+	u8 max_sched_scan_ssids;
+	u8 max_match_sets;
 	u16 max_scan_ie_len;
+	u16 max_sched_scan_ie_len;
 
 	int n_cipher_suites;
 	const u32 *cipher_suites;
@@ -2680,10 +2667,8 @@ void ieee80211_amsdu_to_8023s(struct sk_buff *skb, struct sk_buff_head *list,
 /**
  * cfg80211_classify8021d - determine the 802.1p/1d tag for a data frame
  * @skb: the data frame
- * @qos_map: Interworking QoS mapping or %NULL if not in use
  */
-unsigned int cfg80211_classify8021d(struct sk_buff *skb,
-				    struct cfg80211_qos_map *qos_map);
+unsigned int cfg80211_classify8021d(struct sk_buff *skb);
 
 /**
  * cfg80211_find_ie - find information element in data
@@ -3177,8 +3162,8 @@ void __cfg80211_send_event_skb(struct sk_buff *skb, gfp_t gfp);
 static inline struct sk_buff *
 cfg80211_vendor_cmd_alloc_reply_skb(struct wiphy *wiphy, int approxlen)
 {
-	return __cfg80211_alloc_reply_skb(wiphy, NL80211_CMD_TESTMODE,
-					  NL80211_ATTR_TESTDATA, approxlen);
+	return __cfg80211_alloc_reply_skb(wiphy, NL80211_CMD_VENDOR,
+					  NL80211_ATTR_VENDOR_DATA, approxlen);
 }
 
 /**
@@ -3380,6 +3365,32 @@ void cfg80211_roamed(struct net_device *dev,
 		     const u8 *bssid,
 		     const u8 *req_ie, size_t req_ie_len,
 		     const u8 *resp_ie, size_t resp_ie_len, gfp_t gfp);
+
+/**
+ * cfg80211_roamed_bss - notify cfg80211 of roaming
+ *
+ * @dev: network device
+ * @bss: entry of bss to which STA got roamed
+ * @req_ie: association request IEs (maybe be %NULL)
+ * @req_ie_len: association request IEs length
+ * @resp_ie: association response IEs (may be %NULL)
+ * @resp_ie_len: assoc response IEs length
+ * @gfp: allocation flags
+ *
+ * This is just a wrapper to notify cfg80211 of roaming event with driver
+ * passing bss to avoid a race in timeout of the bss entry. It should be
+ * called by the underlying driver whenever it roamed from one AP to another
+ * while connected. Drivers which have roaming implemented in firmware
+ * may use this function to avoid a race in bss entry timeout where the bss
+ * entry of the new AP is seen in the driver, but gets timed out by the time
+ * it is accessed in __cfg80211_roamed() due to delay in scheduling
+ * rdev->event_work. In case of any failures, the reference is released
+ * either in cfg80211_roamed_bss() or in __cfg80211_romed(), Otherwise,
+ * it will be released while diconneting from the current bss.
+ */
+void cfg80211_roamed_bss(struct net_device *dev, struct cfg80211_bss *bss,
+			 const u8 *req_ie, size_t req_ie_len,
+			 const u8 *resp_ie, size_t resp_ie_len, gfp_t gfp);
 
 /**
  * cfg80211_disconnected - notify cfg80211 that connection was dropped
@@ -3623,7 +3634,7 @@ void cfg80211_tdls_oper_request(struct net_device *dev, const u8 *peer,
  *
  * return 0 if MCS index >= 32
  */
-u16 cfg80211_calculate_bitrate(struct rate_info *rate);
+u32 cfg80211_calculate_bitrate(struct rate_info *rate);
 
 /**
  * struct cfg80211_ft_event - FT Information Elements
@@ -3649,6 +3660,14 @@ struct cfg80211_ft_event_params {
 void cfg80211_ft_event(struct net_device *netdev,
 		       struct cfg80211_ft_event_params *ft_event);
 
+
+
+/**
+ * cfg80211_ap_stopped - notify userspace that AP mode stopped
+ * @netdev: network device
+ * @gfp: context flags
+ */
+void cfg80211_ap_stopped(struct net_device *netdev, gfp_t gfp);
 
 /* Logging, debugging and troubleshooting/diagnostic helpers. */
 
@@ -3697,3 +3716,4 @@ void cfg80211_ft_event(struct net_device *netdev,
 	WARN(1, "wiphy: %s\n" format, wiphy_name(wiphy), ##args);
 
 #endif /* __NET_CFG80211_H */
+

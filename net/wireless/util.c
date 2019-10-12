@@ -651,8 +651,7 @@ void ieee80211_amsdu_to_8023s(struct sk_buff *skb, struct sk_buff_head *list,
 EXPORT_SYMBOL(ieee80211_amsdu_to_8023s);
 
 /* Given a data frame determine the 802.1p/1d tag to use. */
-unsigned int cfg80211_classify8021d(struct sk_buff *skb,
-				    struct cfg80211_qos_map *qos_map)
+unsigned int cfg80211_classify8021d(struct sk_buff *skb)
 {
 	unsigned int dscp;
 
@@ -670,21 +669,6 @@ unsigned int cfg80211_classify8021d(struct sk_buff *skb,
 		break;
 	default:
 		return 0;
-	}
-
-	if (qos_map) {
-		unsigned int i, tmp_dscp = dscp >> 2;
-
-		for (i = 0; i < qos_map->num_des; i++) {
-			if (tmp_dscp == qos_map->dscp_exception[i].dscp)
-				return qos_map->dscp_exception[i].up;
-		}
-
-		for (i = 0; i < 8; i++) {
-			if (tmp_dscp >= qos_map->up[i].low &&
-			    tmp_dscp <= qos_map->up[i].high)
-				return i;
-		}
 	}
 
 	return dscp >> 5;
@@ -771,9 +755,9 @@ void cfg80211_process_wdev_events(struct wireless_dev *wdev)
 				NULL);
 			break;
 		case EVENT_ROAMED:
-			__cfg80211_roamed(wdev, ev->rm.channel, ev->rm.bssid,
-					  ev->rm.req_ie, ev->rm.req_ie_len,
-					  ev->rm.resp_ie, ev->rm.resp_ie_len);
+			__cfg80211_roamed(wdev, ev->rm.bss, ev->rm.req_ie,
+					  ev->rm.req_ie_len, ev->rm.resp_ie,
+					  ev->rm.resp_ie_len);
 			break;
 		case EVENT_DISCONNECTED:
 			__cfg80211_disconnected(wdev->netdev,
@@ -840,9 +824,6 @@ int cfg80211_change_iface(struct cfg80211_registered_device *rdev,
 
 		dev->ieee80211_ptr->use_4addr = false;
 		dev->ieee80211_ptr->mesh_id_up_len = 0;
-		if (rdev->ops->set_qos_map) {
-			rdev->ops->set_qos_map(&rdev->wiphy, dev, NULL);
-		}
 
 		switch (otype) {
 		case NL80211_IFTYPE_ADHOC:
@@ -971,7 +952,7 @@ static u32 cfg80211_calculate_bitrate_vht(struct rate_info *rate)
 	return (bitrate + 50000) / 100000;
 }
 
-u16 cfg80211_calculate_bitrate(struct rate_info *rate)
+u32 cfg80211_calculate_bitrate(struct rate_info *rate)
 {
 	int modulation, streams, bitrate;
 

@@ -218,32 +218,6 @@ _mali_osk_errcode_t mali_gp_reset(struct mali_gp_core *core)
 
 	mali_hw_core_register_write(&core->hw_core, MALIGP2_REG_ADDR_MGMT_INT_MASK, 0); /* disable the IRQs */
 
-#if defined(USING_MALI200)
-
-	/* On Mali-200, stop the  bus, then do a hard reset of the core */
-
-	mali_hw_core_register_write(&core->hw_core, MALIGP2_REG_ADDR_MGMT_CMD, MALIGP2_REG_VAL_CMD_STOP_BUS);
-
-	for (i = 0; i < request_loop_count; i++)
-	{
-		if (mali_hw_core_register_read(&core->hw_core, MALIGP2_REG_ADDR_MGMT_STATUS) & MALIGP2_REG_VAL_STATUS_BUS_STOPPED)
-		{
-			break;
-		}
-		_mali_osk_time_ubusydelay(10);
-	}
-
-	if (request_loop_count == i)
-	{
-		MALI_PRINT_ERROR(("Mali GP: Failed to stop bus for core %s, unable to recover\n", core->hw_core.description));
-		return _MALI_OSK_ERR_FAULT;
-	}
-
-	/* the bus was stopped OK, do the hard reset */
-	mali_gp_hard_reset(core);
-
-#elif defined(USING_MALI400)
-
 	/* Mali-300 and Mali-400 have a safe reset command which we use */
 
 	mali_hw_core_register_write(&core->hw_core, MALIGP2_REG_ADDR_MGMT_INT_CLEAR, MALI400GP_REG_VAL_IRQ_RESET_COMPLETED);
@@ -263,9 +237,6 @@ _mali_osk_errcode_t mali_gp_reset(struct mali_gp_core *core)
 		MALI_PRINT_ERROR(("Mali GP: Failed to reset core %s, unable to recover\n", core->hw_core.description));
 		return _MALI_OSK_ERR_FAULT;
 	}
-#else
-#error "no supported mali core defined"
-#endif
 
 	/* Re-enable interrupts */
 	mali_hw_core_register_write(&core->hw_core, MALIGP2_REG_ADDR_MGMT_INT_CLEAR, MALIGP2_REG_VAL_IRQ_MASK_ALL);

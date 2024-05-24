@@ -11,10 +11,6 @@
 #include <linux/random.h>
 #include <asm/cachetype.h>
 
-int mmap_rnd_bits_min = CONFIG_ARCH_MMAP_RND_BITS_MIN;
-int mmap_rnd_bits_max = CONFIG_ARCH_MMAP_RND_BITS_MAX;
-int mmap_rnd_bits = CONFIG_ARCH_MMAP_RND_BITS;
-
 static inline unsigned long COLOUR_ALIGN_DOWN(unsigned long addr,
 					      unsigned long pgoff)
 {
@@ -37,13 +33,7 @@ static inline unsigned long COLOUR_ALIGN_DOWN(unsigned long addr,
 
 static int mmap_is_legacy(void)
 {
-	if (current->personality & ADDR_COMPAT_LAYOUT)
-		return 1;
-
-	if (rlimit(RLIMIT_STACK) == RLIM_INFINITY)
-		return 1;
-
-	return sysctl_legacy_va_layout;
+	return 1;
 }
 
 static unsigned long mmap_base(unsigned long rnd)
@@ -114,6 +104,10 @@ arch_get_unmapped_area(struct file *filp, unsigned long addr,
 	        start_addr = addr = mm->mmap_base;
 	        mm->cached_hole_size = 0;
 	}
+
+	if ((current->flags & PF_RANDOMIZE) &&
+	    !(current->personality & ADDR_NO_RANDOMIZE))
+		addr += (get_random_int() % ((1 << mmap_rnd_bits) - 1)) << PAGE_SHIFT;
 
 full_search:
 	if (do_align)
@@ -263,9 +257,10 @@ void arch_pick_mmap_layout(struct mm_struct *mm)
 {
 	unsigned long random_factor = 0UL;
 
+	/* 8 bits of randomness in 20 address space bits */
 	if ((current->flags & PF_RANDOMIZE) &&
 	    !(current->personality & ADDR_NO_RANDOMIZE))
-		random_factor = (get_random_int() % (1 << mmap_rnd_bits)) << PAGE_SHIFT;
+		random_factor = (get_random_int() % (1 << 8)) << PAGE_SHIFT;
 
 	if (mmap_is_legacy()) {
 		mm->mmap_base = TASK_UNMAPPED_BASE + random_factor;

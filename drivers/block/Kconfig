@@ -468,6 +468,7 @@ config SUNVDC
 	  Logical Domains.
 
 source "drivers/s390/block/Kconfig"
+source "drivers/block/zram/Kconfig"
 
 config XILINX_SYSACE
 	tristate "Xilinx SystemACE support"

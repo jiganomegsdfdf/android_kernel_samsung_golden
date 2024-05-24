@@ -46,14 +46,9 @@ enum mali200_mgmt_reg
 
 enum mali200_mgmt_ctrl_mgmt {
 	MALI200_REG_VAL_CTRL_MGMT_STOP_BUS         = (1<<0),
-#if defined(USING_MALI200)
-	MALI200_REG_VAL_CTRL_MGMT_FLUSH_CACHES     = (1<<3),
-#endif
 	MALI200_REG_VAL_CTRL_MGMT_FORCE_RESET      = (1<<5),
 	MALI200_REG_VAL_CTRL_MGMT_START_RENDERING  = (1<<6),
-#if defined(USING_MALI400) || defined(USING_MALI450)
 	MALI400PP_REG_VAL_CTRL_MGMT_SOFT_RESET     = (1<<7),
-#endif
 };
 
 enum mali200_mgmt_irq {
@@ -71,19 +66,6 @@ enum mali200_mgmt_irq {
 	MALI400PP_REG_VAL_IRQ_CALL_STACK_OVERFLOW   = (1<<11),
 	MALI400PP_REG_VAL_IRQ_RESET_COMPLETED       = (1<<12),
 };
-
-#if defined(USING_MALI200)
-#define MALI200_REG_VAL_IRQ_MASK_ALL  ((enum mali200_mgmt_irq) (\
-    MALI200_REG_VAL_IRQ_END_OF_FRAME                           |\
-    MALI200_REG_VAL_IRQ_END_OF_TILE                            |\
-    MALI200_REG_VAL_IRQ_HANG                                   |\
-    MALI200_REG_VAL_IRQ_FORCE_HANG                             |\
-    MALI200_REG_VAL_IRQ_BUS_ERROR                              |\
-    MALI200_REG_VAL_IRQ_BUS_STOP                               |\
-    MALI200_REG_VAL_IRQ_CNT_0_LIMIT                            |\
-    MALI200_REG_VAL_IRQ_CNT_1_LIMIT                            |\
-    MALI200_REG_VAL_IRQ_WRITE_BOUNDARY_ERROR))
-#elif defined(USING_MALI400) || defined(USING_MALI450)
 #define MALI200_REG_VAL_IRQ_MASK_ALL  ((enum mali200_mgmt_irq) (\
     MALI200_REG_VAL_IRQ_END_OF_FRAME                           |\
     MALI200_REG_VAL_IRQ_END_OF_TILE                            |\
@@ -98,18 +80,8 @@ enum mali200_mgmt_irq {
     MALI400PP_REG_VAL_IRQ_CALL_STACK_UNDERFLOW                   |\
     MALI400PP_REG_VAL_IRQ_CALL_STACK_OVERFLOW                    |\
     MALI400PP_REG_VAL_IRQ_RESET_COMPLETED))
-#else
-#error "No supported mali core defined"
-#endif
 
-#if defined(USING_MALI200)
-#define MALI200_REG_VAL_IRQ_MASK_USED ((enum mali200_mgmt_irq) (\
-    MALI200_REG_VAL_IRQ_END_OF_FRAME                           |\
-    MALI200_REG_VAL_IRQ_HANG                                   |\
-    MALI200_REG_VAL_IRQ_FORCE_HANG                             |\
-    MALI200_REG_VAL_IRQ_BUS_ERROR                              |\
-    MALI200_REG_VAL_IRQ_WRITE_BOUNDARY_ERROR))
-#elif defined(USING_MALI400) || defined(USING_MALI450)
+
 #define MALI200_REG_VAL_IRQ_MASK_USED ((enum mali200_mgmt_irq) (\
     MALI200_REG_VAL_IRQ_END_OF_FRAME                           |\
     MALI200_REG_VAL_IRQ_HANG                                   |\
@@ -120,9 +92,7 @@ enum mali200_mgmt_irq {
     MALI400PP_REG_VAL_IRQ_INVALID_PLIST_COMMAND                  |\
     MALI400PP_REG_VAL_IRQ_CALL_STACK_UNDERFLOW                   |\
     MALI400PP_REG_VAL_IRQ_CALL_STACK_OVERFLOW))
-#else
-#error "No supported mali core defined"
-#endif
+
 
 #define MALI200_REG_VAL_IRQ_MASK_NONE ((enum mali200_mgmt_irq)(0))
 
@@ -137,15 +107,7 @@ enum mali200_render_unit
 	MALI200_REG_ADDR_STACK = 0x0030
 };
 
-#if defined(USING_MALI200)
-#define MALI200_NUM_REGS_FRAME ((0x04C/4)+1)
-#elif defined(USING_MALI400)
 #define MALI200_NUM_REGS_FRAME ((0x058/4)+1)
-#elif defined(USING_MALI450)
-#define MALI200_NUM_REGS_FRAME ((0x058/4)+1)
-#else
-#error "No supported mali core defined"
-#endif
 
 enum mali200_wb_unit {
     MALI200_REG_ADDR_WB0 = 0x0100,

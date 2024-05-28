@@ -1304,7 +1304,7 @@ static void sec_bat_get_battery_info(
 		break;
 	}
 
-	dev_info(battery->dev,
+	/*dev_info(battery->dev,
 		"%s: %s, SOC(%d%%)\n", __func__,
 		battery->present ? "Connected" : "Disconnected",
 		battery->capacity);
@@ -1318,7 +1318,7 @@ static void sec_bat_get_battery_info(
 		battery->current_avg, battery->current_adc);
 	dev_info(battery->dev,
 		"%s: Tbat(%d), Tamb(%d)\n", __func__,
-		battery->temperature, battery->temper_amb);
+		battery->temperature, battery->temper_amb);*/
 };
 
 static void sec_bat_polling_work(struct work_struct *work)
@@ -1623,7 +1623,7 @@ static void sec_bat_cable_work(struct work_struct *work)
 	battery->polling_in_sleep = false;
 	sec_bat_get_polling_time(battery);
 
-	dev_dbg(battery->dev,
+	/*dev_dbg(battery->dev,
 		"%s: Status:%s, Sleep:%s, Charging:%s, Short Poll:%s\n",
 		__func__, sec_bat_status_str[battery->status],
 		battery->polling_in_sleep ? "Yes" : "No",
@@ -1632,7 +1632,7 @@ static void sec_bat_cable_work(struct work_struct *work)
 		battery->polling_short ? "Yes" : "No");
 	dev_dbg(battery->dev,
 		"%s: Polling time is reset to %d sec.\n", __func__,
-		battery->polling_time);
+		battery->polling_time);*/
 
 	battery->polling_count = 1;	/* initial value = 1 */
 

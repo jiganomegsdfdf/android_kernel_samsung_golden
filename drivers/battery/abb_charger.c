@@ -1055,7 +1055,7 @@ static bool ab8500_chg_check_ovp_status(struct ab8500_charger_info *di)
 	int volt = ab8500_chg_get_vbus_voltage(di);
 	int ovp_threshold;
 
-	dev_info(di->dev, "VBUS Voltage : %d mV\n", volt);
+	//dev_info(di->dev, "VBUS Voltage : %d mV\n", volt);
 
 	if (di->is_charging)
 		ovp_threshold = get_battery_data(di).chg_params->volt_ovp;
